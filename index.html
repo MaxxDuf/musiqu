@@ -72,10 +72,12 @@ function spawnTile() {
 
 function startGame() {
   startBtn.style.display = 'none';
-  audio.play().catch(err => {
-    console.log("Lecture bloquée, attendre interaction utilisateur pour relancer");
+  
+  // Lecture musique avec gestion blocage navigateur
+  audio.play().catch(() => {
     document.body.addEventListener('click', () => audio.play(), { once: true });
   });
+
   score = 0;
   lives = 3;
   scoreEl.textContent = score;
@@ -97,5 +99,3 @@ startBtn.addEventListener('click', startGame);
 
 </body>
 </html>
-
-
