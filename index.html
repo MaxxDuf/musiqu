@@ -81,7 +81,6 @@
       starsDiv.textContent = "";
     }
 
-    // Vérifie si on peut spawn dans une colonne (pas de chevauchement)
     function canSpawn(lane) {
       return !tiles.some(t => t.lane === lane && t.y < 150);
     }
@@ -106,17 +105,20 @@
     });
 
     function checkHit(lane){
+      // zone de hit : les 150 derniers pixels du canvas
+      const hitZoneTop = canvas.height - 150;
+      const hitZoneBottom = canvas.height;
+
       for(let tile of tiles){
         if(!tile.hit && tile.lane === lane &&
-           tile.y + tile.h > canvas.height-150 &&
-           tile.y < canvas.height-50){
+           tile.y + tile.h > hitZoneTop && tile.y < hitZoneBottom){
           tile.hit = true;
           score += 10;
           scoreSpan.textContent = score;
           return;
         }
       }
-      // raté
+      // raté si aucune tuile
       loseLife();
     }
 
@@ -126,35 +128,29 @@
       if(lives <= 0){ running = false; audio.pause(); alert("Game Over ! Score: "+score); }
     }
 
-    // Progression + étoiles
     function updateProgress(){
       const percent = Math.min((audio.currentTime / songDuration) * 100, 100);
       progressBar.style.width = percent+"%";
 
-      // étoiles tous les 20%
       let newStars = Math.floor(percent/20);
       if(newStars > stars){
         stars = newStars;
         starsDiv.textContent = "⭐".repeat(stars);
       }
 
-      // vitesse augmente progressivement
-      speed = baseSpeed + (percent/20); // augmente lentement avec le temps
+      speed = baseSpeed + (percent/20);
 
       if(percent >= 100){ running = false; audio.pause(); alert("Victoire 🎉 Score: "+score); }
     }
 
-    // Boucle de jeu
     function gameLoop(){
       if(!running) return;
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // spawn selon la vitesse (plus souvent à la fin)
       if(Math.random() < 0.02 + (speed/200)) spawnTile();
 
       tiles.forEach(tile=>{ tile.update(); tile.draw(); });
 
-      // nettoyer les tuiles hors écran
       tiles = tiles.filter(tile=>{
         if(tile.y > canvas.height){
           if(!tile.hit){ loseLife(); }
