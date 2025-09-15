@@ -37,6 +37,7 @@
       width: 0%;
       background: limegreen;
       border-radius: 10px 0 0 10px;
+      transition: width 0.2s linear;
     }
     .star {
       position: absolute;
@@ -57,7 +58,7 @@
   </style>
 </head>
 <body>
-  <h1>🎵 Magic Tiles</h1>
+  <h1>🎵 Maxence Musique</h1>
   <button id="startButton">Commencer</button>
 
   <!-- Barre de progression -->
@@ -68,7 +69,7 @@
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <audio id="music" src="musique.mp3"></audio>
 
-  <footer>Version 1.21</footer>
+  <footer>Version 1.22</footer>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
