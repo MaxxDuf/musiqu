@@ -30,13 +30,13 @@
       border-radius: 10px;
       margin: 15px auto;
       position: relative;
+      overflow: hidden;
     }
     #progressBar {
       height: 100%;
       width: 0%;
       background: limegreen;
-      border-radius: 10px;
-      transition: width 0.2s linear;
+      border-radius: 10px 0 0 10px;
     }
     .star {
       position: absolute;
@@ -49,16 +49,26 @@
     .star.reached {
       color: yellow;
     }
+    footer {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
   <h1>🎵 Magic Tiles</h1>
   <button id="startButton">Commencer</button>
+
+  <!-- Barre de progression -->
   <div id="progressContainer">
     <div id="progressBar"></div>
   </div>
+
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <audio id="music" src="musique.mp3"></audio>
+
+  <footer>Version 1.21</footer>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -158,17 +168,19 @@
 
     // Barre progression + étoiles
     function updateProgress() {
-      const current = music.currentTime;
-      const progress = (current / songDuration) * 100;
-      progressBar.style.width = progress + "%";
+      if (music.duration > 0) {
+        const current = music.currentTime;
+        const progress = (current / songDuration) * 100;
+        progressBar.style.width = progress + "%";
 
-      stars.forEach((star, i) => {
-        if (!starReached[i] && progress >= starThresholds[i]) {
-          star.classList.add("reached");
-          starReached[i] = true;
-          increaseDifficulty(i + 1);
-        }
-      });
+        stars.forEach((star, i) => {
+          if (!starReached[i] && progress >= starThresholds[i]) {
+            star.classList.add("reached");
+            starReached[i] = true;
+            increaseDifficulty(i + 1);
+          }
+        });
+      }
     }
 
     // Augmente difficulté à chaque étoile
@@ -192,4 +204,3 @@
   </script>
 </body>
 </html>
-
