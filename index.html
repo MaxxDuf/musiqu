@@ -40,9 +40,8 @@
     let speed = baseSpeed;
     let running = false;
     let stars = 0;
-    let spawnChance = 0.01;
 
-    const songDuration = 204;
+    const songDuration = 204; // 3 min 24 s
     const audio = new Audio("musique.mp3");
 
     class Tile {
@@ -98,17 +97,20 @@
         attempts++;
       } while (!canSpawn(lane) && attempts < 10);
 
-      if(Math.random() < spawnChance){
+      if(Math.random() < 0.01 + (audio.currentTime/songDuration)/5){
         tiles.push(new Tile(lane));
       }
     }
 
-    // Clic souris
+    // clic souris avec correction échelle
     canvas.addEventListener("click", e => {
       if(!running) return;
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const mx = (e.clientX - rect.left) * scaleX;
+      const my = (e.clientY - rect.top) * scaleY;
 
       let hitAny = false;
       for(let tile of tiles){
@@ -139,8 +141,8 @@
         starsDiv.textContent = "⭐".repeat(stars);
       }
 
+      // difficulté progressive
       speed = baseSpeed + (percent/20);
-      spawnChance = 0.01 + (percent/200);
 
       if(percent >= 100){ running = false; audio.pause(); alert("Victoire 🎉 Score: "+score); }
     }
@@ -167,3 +169,4 @@
   </script>
 </body>
 </html>
+g
