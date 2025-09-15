@@ -8,7 +8,7 @@
     canvas { display:block; margin:20px auto; background:#222; border:2px solid #555; cursor:pointer; }
     #hud { margin:10px; }
     #progressContainer { width:80%; margin:10px auto; height:20px; background:#333; border-radius:10px; overflow:hidden; }
-    #progressBar { height:100%; width:0%; background:linear-gradient(90deg,gold,orange); }
+    #progressBar { height:100%; width:0%; background:linear-gradient(90deg,green,lime); transition:width 0.2s; }
     #stars { margin:5px; font-size:24px; color:gold; }
     #startBtn { padding:10px 20px; font-size:20px; margin-top:20px; cursor:pointer; }
   </style>
@@ -40,8 +40,8 @@
     let speed = baseSpeed;
     let running = false;
     let stars = 0;
+    let progressWidth = 0; // largeur de la barre en px
 
-    const songDuration = 204; // 3 min 24 s
     const audio = new Audio("musique.mp3");
 
     class Tile {
@@ -80,9 +80,11 @@
       lives = 3;
       speed = baseSpeed;
       stars = 0;
+      progressWidth = 0;
       scoreSpan.textContent = score;
       livesSpan.textContent = lives;
       starsDiv.textContent = "";
+      progressBar.style.width = "0px";
     }
 
     function canSpawn(lane) {
@@ -97,12 +99,12 @@
         attempts++;
       } while (!canSpawn(lane) && attempts < 10);
 
-      if(Math.random() < 0.01 + (audio.currentTime/songDuration)/5){
+      if(Math.random() < 0.01 + (progressWidth/2000)){
         tiles.push(new Tile(lane));
       }
     }
 
-    // clic souris avec correction échelle
+    // clic souris
     canvas.addEventListener("click", e => {
       if(!running) return;
       const rect = canvas.getBoundingClientRect();
@@ -119,32 +121,36 @@
           score += 10;
           scoreSpan.textContent = score;
           hitAny = true;
+
+          // chaque clic réussi fait avancer la barre
+          progressWidth += 5; // ← tu peux changer cette valeur
+          progressBar.style.width = progressWidth + "px";
+          checkStars();
           break;
         }
       }
       if(!hitAny) loseLife();
     });
 
-    function loseLife(){
-      lives--;
-      livesSpan.textContent = lives;
-      if(lives <= 0){ running = false; audio.pause(); alert("Game Over ! Score: "+score); }
-    }
-
-    function updateProgress(){
-      const percent = Math.min((audio.currentTime / songDuration) * 100, 100);
-      progressBar.style.width = percent+"%";
-
+    function checkStars(){
+      const maxWidth = document.getElementById("progressContainer").offsetWidth;
+      const percent = (progressWidth / maxWidth) * 100;
       let newStars = Math.floor(percent/20);
       if(newStars > stars){
         stars = newStars;
         starsDiv.textContent = "⭐".repeat(stars);
       }
+      if(percent >= 100){
+        running = false; 
+        audio.pause();
+        alert("Victoire 🎉 Score: "+score);
+      }
+    }
 
-      // difficulté progressive
-      speed = baseSpeed + (percent/20);
-
-      if(percent >= 100){ running = false; audio.pause(); alert("Victoire 🎉 Score: "+score); }
+    function loseLife(){
+      lives--;
+      livesSpan.textContent = lives;
+      if(lives <= 0){ running = false; audio.pause(); alert("Game Over ! Score: "+score); }
     }
 
     function gameLoop(){
@@ -163,10 +169,8 @@
         return true;
       });
 
-      updateProgress();
       requestAnimationFrame(gameLoop);
     }
   </script>
 </body>
 </html>
-g
