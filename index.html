@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Jeu Magic Tiles</title>
+  <title>Magic Tiles</title>
   <style>
     body {
       margin: 0;
@@ -23,6 +23,7 @@
       margin-top: 10px;
       cursor: pointer;
     }
+    /* Barre de progression */
     #progressContainer {
       width: 80%;
       height: 20px;
@@ -30,21 +31,18 @@
       border-radius: 10px;
       margin: 15px auto;
       position: relative;
-      overflow: hidden;
     }
     #progressBar {
       height: 100%;
       width: 0%;
       background: limegreen;
-      border-radius: 10px 0 0 10px;
-      transition: width 0.2s linear;
+      border-radius: 10px;
     }
+    /* Étoiles */
     .star {
       position: absolute;
-      top: -25px;
-      width: 20px;
-      height: 20px;
-      font-size: 20px;
+      top: -28px;
+      font-size: 22px;
       color: gray;
     }
     .star.reached {
@@ -58,7 +56,7 @@
   </style>
 </head>
 <body>
-  <h1>🎵 Maxence Musique</h1>
+  <h1>🎵 Magic Tiles</h1>
   <button id="startButton">Commencer</button>
 
   <!-- Barre de progression -->
@@ -69,7 +67,7 @@
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <audio id="music" src="musique.mp3"></audio>
 
-  <footer>Version 1.22</footer>
+  <footer>Version 1.23</footer>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -87,13 +85,12 @@
     let tileInterval;
     let playing = false;
 
-    // Durée musique (3:24 = 204s)
-    const songDuration = 204;
+    const songDuration = 204; // 3 min 24 sec
     let stars = [];
     let starThresholds = [];
     let starReached = [];
 
-    // Crée des étoiles fixes sur la barre
+    // Crée des étoiles fixes
     function createStars() {
       const starCount = 5;
       stars = [];
@@ -114,7 +111,7 @@
       }
     }
 
-    // Création tuile (pas de chevauchement proche)
+    // Création tuile (évite chevauchement proche)
     function createTile() {
       let col, valid = false;
       while (!valid) {
@@ -130,7 +127,6 @@
       tiles.push({ x: col * tileWidth, y: -tileHeight, col, clicked: false });
     }
 
-    // Dessin
     function drawTiles() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "cyan";
@@ -139,13 +135,11 @@
       }
     }
 
-    // Mise à jour
     function updateTiles() {
       for (let tile of tiles) tile.y += speed;
       tiles = tiles.filter(tile => tile.y < canvas.height);
     }
 
-    // Clique souris
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
@@ -160,14 +154,13 @@
       }
     });
 
-    // Boucle
     function gameLoop() {
       updateTiles();
       drawTiles();
       updateProgress();
     }
 
-    // Barre progression + étoiles
+    // Barre progression
     function updateProgress() {
       if (music.duration > 0) {
         const current = music.currentTime;
@@ -184,7 +177,7 @@
       }
     }
 
-    // Augmente difficulté à chaque étoile
+    // Difficulté
     function increaseDifficulty(level) {
       speed += 0.5;
       if (tileInterval) clearInterval(tileInterval);
@@ -192,7 +185,6 @@
       tileInterval = setInterval(createTile, newInterval);
     }
 
-    // Lancer
     startButton.addEventListener("click", () => {
       if (!playing) {
         playing = true;
