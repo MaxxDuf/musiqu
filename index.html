@@ -9,9 +9,10 @@
       background: #111;
       overflow: hidden;
       font-family: Arial, sans-serif;
+      color: #fff;
     }
     canvas {
-      display: block;
+      display: none;
       margin: auto;
       background: #222;
     }
@@ -21,7 +22,6 @@
       left: 50%;
       transform: translate(-50%, -50%);
       font-size: 48px;
-      color: #fff;
       text-shadow: 2px 2px 5px black;
       opacity: 0;
       transition: opacity 0.3s ease-out;
@@ -36,6 +36,7 @@
       background: #333;
       border-radius: 10px;
       overflow: hidden;
+      display: none;
     }
     #progressBar {
       height: 100%;
@@ -51,6 +52,39 @@
       transform: translateX(-50%);
       font-size: 28px;
       color: gold;
+      display: none;
+    }
+    #menu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    #startBtn {
+      font-size: 24px;
+      padding: 12px 24px;
+      background: #0f0;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #endScreen {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    #restartBtn {
+      margin-top: 20px;
+      font-size: 20px;
+      padding: 10px 20px;
+      background: #09f;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -59,6 +93,18 @@
   <div id="feedback"></div>
   <div id="progressContainer"><div id="progressBar"></div></div>
   <div id="stars"></div>
+
+  <!-- Menu de démarrage -->
+  <div id="menu">
+    <h1>🎵 Magic Tiles Clone 🎵</h1>
+    <button id="startBtn">Commencer</button>
+  </div>
+
+  <!-- Écran de fin -->
+  <div id="endScreen">
+    <h1 id="endMessage"></h1>
+    <button id="restartBtn">Rejouer</button>
+  </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -70,22 +116,22 @@
     let score = 0;
     let keysPressed = {};
 
-    // Durée fixe de la musique (3 min 24 sec = 204 sec)
-    const songDuration = 204;
+    const songDuration = 204; // 3:24
     const audio = new Audio("musique.mp3");
     audio.loop = false;
 
-    // Jouer musique au clic
-    document.body.addEventListener("click", () => {
-      audio.play().catch(() => {});
-    }, { once: true });
-
-    // Barre de progression
     const progressBar = document.getElementById("progressBar");
     const starsDiv = document.getElementById("stars");
-    let stars = 0;
+    const feedback = document.getElementById("feedback");
+    const menu = document.getElementById("menu");
+    const startBtn = document.getElementById("startBtn");
+    const endScreen = document.getElementById("endScreen");
+    const endMessage = document.getElementById("endMessage");
+    const restartBtn = document.getElementById("restartBtn");
 
-    // Classe Tile
+    let stars = 0;
+    let running = false;
+
     class Tile {
       constructor(lane, y, type = "normal", length = 1) {
         this.lane = lane;
@@ -95,27 +141,20 @@
         this.hit = false;
         this.held = false;
       }
-
       draw() {
         ctx.fillStyle = this.type === "long" ? "#0f0" : "#09f";
         let tileHeight = 100 * this.length;
         ctx.fillRect(this.lane * laneWidth, this.y, laneWidth - 4, tileHeight - 4);
       }
-
-      update() {
-        this.y += speed;
-      }
+      update() { this.y += speed; }
     }
 
-    // Feedback visuel
     function showFeedback(text) {
-      const fb = document.getElementById("feedback");
-      fb.innerText = text;
-      fb.style.opacity = 1;
-      setTimeout(() => fb.style.opacity = 0, 500);
+      feedback.innerText = text;
+      feedback.style.opacity = 1;
+      setTimeout(() => feedback.style.opacity = 0, 500);
     }
 
-    // Génération aléatoire des blocs
     function spawnTile() {
       const lane = Math.floor(Math.random() * 4);
       const type = Math.random() < 0.3 ? "long" : "normal";
@@ -123,7 +162,6 @@
       tiles.push(new Tile(lane, -100 * length, type, length));
     }
 
-    // Vérification appui
     function checkHit(lane) {
       for (let tile of tiles) {
         if (!tile.hit &&
@@ -146,7 +184,6 @@
       }
     }
 
-    // Relâcher un bloc long
     function releaseLane(lane) {
       for (let tile of tiles) {
         if (tile.held && tile.lane === lane) {
@@ -158,40 +195,40 @@
       }
     }
 
-    // Contrôles clavier
     window.addEventListener("keydown", e => {
-      if (["ArrowLeft", "ArrowDown", "ArrowUp", "ArrowRight"].includes(e.key)) {
-        const lane = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3 }[e.key];
+      if (["ArrowLeft","ArrowDown","ArrowUp","ArrowRight"].includes(e.key)) {
+        const lane = {ArrowLeft:0,ArrowDown:1,ArrowUp:2,ArrowRight:3}[e.key];
         keysPressed[lane] = true;
         checkHit(lane);
       }
     });
-
     window.addEventListener("keyup", e => {
-      if (["ArrowLeft", "ArrowDown", "ArrowUp", "ArrowRight"].includes(e.key)) {
-        const lane = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3 }[e.key];
+      if (["ArrowLeft","ArrowDown","ArrowUp","ArrowRight"].includes(e.key)) {
+        const lane = {ArrowLeft:0,ArrowDown:1,ArrowUp:2,ArrowRight:3}[e.key];
         keysPressed[lane] = false;
         releaseLane(lane);
       }
     });
 
-    // Progression & difficulté
     function updateProgress() {
       const currentTime = audio.currentTime;
       const percent = Math.min((currentTime / songDuration) * 100, 100);
       progressBar.style.width = percent + "%";
 
-      // Ajouter une étoile à chaque quart (25%, 50%, 75%, 100%)
       const newStars = Math.floor(percent / 25);
       if (newStars > stars) {
         stars = newStars;
         starsDiv.innerText = "⭐".repeat(stars);
-        speed += 1; // augmente la difficulté
+        speed += 1;
+      }
+
+      if (currentTime >= songDuration) {
+        endGame();
       }
     }
 
-    // Boucle principale
     function gameLoop() {
+      if (!running) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (Math.random() < 0.02) spawnTile();
@@ -208,11 +245,38 @@
       ctx.fillText("Score: " + score, 10, 30);
 
       updateProgress();
-
       requestAnimationFrame(gameLoop);
     }
 
-    gameLoop();
+    function startGame() {
+      menu.style.display = "none";
+      canvas.style.display = "block";
+      document.getElementById("progressContainer").style.display = "block";
+      starsDiv.style.display = "block";
+      tiles = [];
+      score = 0;
+      stars = 0;
+      speed = 3;
+      running = true;
+      audio.currentTime = 0;
+      audio.play();
+      gameLoop();
+    }
+
+    function endGame() {
+      running = false;
+      canvas.style.display = "none";
+      document.getElementById("progressContainer").style.display = "none";
+      starsDiv.style.display = "none";
+      endMessage.innerText = `Partie terminée 🎵 Score: ${score}`;
+      endScreen.style.display = "block";
+    }
+
+    startBtn.addEventListener("click", startGame);
+    restartBtn.addEventListener("click", () => {
+      endScreen.style.display = "none";
+      startGame();
+    });
   </script>
 </body>
 </html>
