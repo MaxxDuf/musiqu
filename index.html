@@ -31,14 +31,14 @@ let gameInterval;
 let spawnInterval = 1000;
 let tileSpeed = 2;
 
-// musique (fichier à placer dans le même dossier que index.html et renommé en musique.mp3)
+// MUSIQUE (à placer dans le même dossier et renommé musique.mp3)
 const audio = new Audio('musique.mp3');
 audio.loop = true;
 
 function spawnTile() {
   const tile = document.createElement('div');
   tile.classList.add('tile');
-  const colors = ['#e74c3c','#3498db','#f1c40f','#9b59b6']; // différentes couleurs
+  const colors = ['#e74c3c','#3498db','#f1c40f','#9b59b6'];
   tile.style.background = colors[Math.floor(Math.random()*colors.length)];
   const x = Math.floor(Math.random() * 4) * 75 + 5;
   tile.style.left = x + 'px';
@@ -72,7 +72,7 @@ function spawnTile() {
 
 function startGame() {
   startBtn.style.display = 'none';
-  audio.play();
+  audio.play().catch(err => console.log("Erreur audio:", err));
   score = 0;
   lives = 3;
   scoreEl.textContent = score;
@@ -84,7 +84,6 @@ function endGame() {
   clearInterval(gameInterval);
   audio.pause();
   alert('GAME OVER\nScore: ' + score);
-  // reset game
   tiles.forEach(t => t.remove());
   tiles = [];
   startBtn.style.display = 'inline-block';
