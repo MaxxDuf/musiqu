@@ -2,136 +2,165 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Magic Tiles - Jeu avec musique</title>
+  <title>Magic Tiles Clone</title>
   <style>
     body {
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       background: #111;
-      color: #fff;
-      font-family: sans-serif;
-    }
-    #game {
-      position: relative;
-      width: 300px;
-      height: 500px;
-      background: #222;
       overflow: hidden;
-      border-radius: 10px;
+      font-family: Arial, sans-serif;
     }
-    .tile {
+    canvas {
+      display: block;
+      margin: auto;
+      background: #222;
+    }
+    #feedback {
       position: absolute;
-      width: 70px;
-      height: 70px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    #scoreLives {
-      margin-bottom: 10px;
-      text-align: center;
-      font-size: 16px;
-    }
-    #startBtn {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      background: #1abc9c;
-      color: #042;
-      margin-bottom: 10px;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      color: #fff;
+      text-shadow: 2px 2px 5px black;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
     }
   </style>
 </head>
 <body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div id="feedback"></div>
 
-<div id="scoreLives">Score: <span id="score">0</span> | Vies: <span id="lives">3</span></div>
-<button id="startBtn">Démarrer le jeu</button>
-<div id="game"></div>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
-<script>
-  const game = document.getElementById('game');
-  const scoreEl = document.getElementById('score');
-  const livesEl = document.getElementById('lives');
-  const startBtn = document.getElementById('startBtn');
+    const laneWidth = canvas.width / 4;
+    const speed = 3;
+    let tiles = [];
+    let score = 0;
+    let keysPressed = {};
 
-  let tiles = [];
-  let score = 0;
-  let lives = 3;
-  let gameInterval;
-  let spawnInterval = 1000;
-  let tileSpeed = 2;
+    // Charger la musique
+    const audio = new Audio("musique.mp3");
+    audio.loop = false;
 
-  // MUSIQUE
-  const audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
-  audio.loop = true;
+    document.body.addEventListener("click", () => {
+      audio.play().catch(() => {});
+    }, { once: true });
 
-  function spawnTile() {
-    const tile = document.createElement('div');
-    tile.classList.add('tile');
-    const colors = ['#e74c3c','#3498db','#f1c40f','#9b59b6'];
-    tile.style.background = colors[Math.floor(Math.random()*colors.length)];
-    const x = Math.floor(Math.random() * 4) * 75 + 5;
-    tile.style.left = x + 'px';
-    tile.style.top = '-80px';
-    game.appendChild(tile);
-    tiles.push(tile);
-
-    tile.addEventListener('click', () => {
-      score += 10;
-      scoreEl.textContent = score;
-      tile.remove();
-      tiles.splice(tiles.indexOf(tile),1);
-    });
-
-    function move() {
-      if (!tile.parentElement) return;
-      const top = parseFloat(tile.style.top);
-      if (top > game.clientHeight) {
-        tile.remove();
-        tiles.splice(tiles.indexOf(tile),1);
-        lives -= 1;
-        livesEl.textContent = lives;
-        if (lives <= 0) { endGame(); return; }
-        return;
+    // Classe Tile (bloc normal ou long)
+    class Tile {
+      constructor(lane, y, type = "normal", length = 1) {
+        this.lane = lane;
+        this.y = y;
+        this.type = type; // "normal" ou "long"
+        this.length = length; // longueur (en nombre de cases)
+        this.hit = false;
+        this.held = false;
       }
-      tile.style.top = top + tileSpeed + 'px';
-      requestAnimationFrame(move);
-    }
-    requestAnimationFrame(move);
-  }
 
-  function startGame() {
-    startBtn.style.display = 'none';
-    
-    // Lecture musique avec gestion blocage navigateur
-    audio.play().catch(() => {
-      document.body.addEventListener('click', () => audio.play(), { once: true });
+      draw() {
+        ctx.fillStyle = this.type === "long" ? "#0f0" : "#09f";
+        let tileHeight = 100 * this.length;
+        ctx.fillRect(this.lane * laneWidth, this.y, laneWidth - 4, tileHeight - 4);
+      }
+
+      update() {
+        this.y += speed;
+      }
+    }
+
+    // Feedback visuel
+    function showFeedback(text) {
+      const fb = document.getElementById("feedback");
+      fb.innerText = text;
+      fb.style.opacity = 1;
+      setTimeout(() => fb.style.opacity = 0, 500);
+    }
+
+    // Génération aléatoire des blocs
+    function spawnTile() {
+      const lane = Math.floor(Math.random() * 4);
+      const type = Math.random() < 0.3 ? "long" : "normal"; // 30% de chance long
+      const length = type === "long" ? 2 + Math.floor(Math.random() * 2) : 1;
+      tiles.push(new Tile(lane, -100 * length, type, length));
+    }
+
+    // Vérification appui
+    function checkHit(lane) {
+      for (let tile of tiles) {
+        if (!tile.hit &&
+            tile.lane === lane &&
+            tile.y + 100 * tile.length > canvas.height - 120 &&
+            tile.y < canvas.height - 20) {
+
+          if (tile.type === "normal") {
+            tile.hit = true;
+            score++;
+            showFeedback("Perfect!");
+          } else if (tile.type === "long") {
+            if (keysPressed[lane]) {
+              tile.held = true;
+              score += 2;
+              showFeedback("Hold!");
+            }
+          }
+        }
+      }
+    }
+
+    // Relâcher après bloc long
+    function releaseLane(lane) {
+      for (let tile of tiles) {
+        if (tile.held && tile.lane === lane) {
+          tile.hit = true;
+          tile.held = false;
+          score += 3;
+          showFeedback("Great!");
+        }
+      }
+    }
+
+    // Contrôles clavier
+    window.addEventListener("keydown", e => {
+      if (["ArrowLeft", "ArrowDown", "ArrowUp", "ArrowRight"].includes(e.key)) {
+        const lane = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3 }[e.key];
+        keysPressed[lane] = true;
+        checkHit(lane);
+      }
     });
 
-    score = 0;
-    lives = 3;
-    scoreEl.textContent = score;
-    livesEl.textContent = lives;
-    gameInterval = setInterval(spawnTile, spawnInterval);
-  }
+    window.addEventListener("keyup", e => {
+      if (["ArrowLeft", "ArrowDown", "ArrowUp", "ArrowRight"].includes(e.key)) {
+        const lane = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3 }[e.key];
+        keysPressed[lane] = false;
+        releaseLane(lane);
+      }
+    });
 
-  function endGame() {
-    clearInterval(gameInterval);
-    audio.pause();
-    alert('GAME OVER\nScore: ' + score);
-    tiles.forEach(t => t.remove());
-    tiles = [];
-    startBtn.style.display = 'inline-block';
-  }
+    // Boucle principale
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  startBtn.addEventListener('click', startGame);
-</script>
+      if (Math.random() < 0.02) spawnTile();
 
+      for (let tile of tiles) {
+        tile.update();
+        tile.draw();
+      }
+
+      tiles = tiles.filter(tile => tile.y < canvas.height + 200);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
 </body>
 </html>
