@@ -26,37 +26,72 @@
       opacity: 0;
       transition: opacity 0.3s ease-out;
     }
+    #progressContainer {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 20px;
+      background: #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, gold, orange);
+      border-radius: 10px;
+      transition: width 0.2s;
+    }
+    #stars {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 28px;
+      color: gold;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <div id="feedback"></div>
+  <div id="progressContainer"><div id="progressBar"></div></div>
+  <div id="stars"></div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
     const laneWidth = canvas.width / 4;
-    const speed = 3;
+    let speed = 3;
     let tiles = [];
     let score = 0;
     let keysPressed = {};
 
-    // Charger la musique
+    // Durée fixe de la musique (3 min 24 sec = 204 sec)
+    const songDuration = 204;
     const audio = new Audio("musique.mp3");
     audio.loop = false;
 
+    // Jouer musique au clic
     document.body.addEventListener("click", () => {
       audio.play().catch(() => {});
     }, { once: true });
 
-    // Classe Tile (bloc normal ou long)
+    // Barre de progression
+    const progressBar = document.getElementById("progressBar");
+    const starsDiv = document.getElementById("stars");
+    let stars = 0;
+
+    // Classe Tile
     class Tile {
       constructor(lane, y, type = "normal", length = 1) {
         this.lane = lane;
         this.y = y;
-        this.type = type; // "normal" ou "long"
-        this.length = length; // longueur (en nombre de cases)
+        this.type = type;
+        this.length = length;
         this.hit = false;
         this.held = false;
       }
@@ -83,7 +118,7 @@
     // Génération aléatoire des blocs
     function spawnTile() {
       const lane = Math.floor(Math.random() * 4);
-      const type = Math.random() < 0.3 ? "long" : "normal"; // 30% de chance long
+      const type = Math.random() < 0.3 ? "long" : "normal";
       const length = type === "long" ? 2 + Math.floor(Math.random() * 2) : 1;
       tiles.push(new Tile(lane, -100 * length, type, length));
     }
@@ -111,7 +146,7 @@
       }
     }
 
-    // Relâcher après bloc long
+    // Relâcher un bloc long
     function releaseLane(lane) {
       for (let tile of tiles) {
         if (tile.held && tile.lane === lane) {
@@ -140,6 +175,21 @@
       }
     });
 
+    // Progression & difficulté
+    function updateProgress() {
+      const currentTime = audio.currentTime;
+      const percent = Math.min((currentTime / songDuration) * 100, 100);
+      progressBar.style.width = percent + "%";
+
+      // Ajouter une étoile à chaque quart (25%, 50%, 75%, 100%)
+      const newStars = Math.floor(percent / 25);
+      if (newStars > stars) {
+        stars = newStars;
+        starsDiv.innerText = "⭐".repeat(stars);
+        speed += 1; // augmente la difficulté
+      }
+    }
+
     // Boucle principale
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -156,6 +206,8 @@
       ctx.fillStyle = "#fff";
       ctx.font = "20px Arial";
       ctx.fillText("Score: " + score, 10, 30);
+
+      updateProgress();
 
       requestAnimationFrame(gameLoop);
     }
