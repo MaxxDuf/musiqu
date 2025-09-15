@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Magic Tiles Clone</title>
+  <title>Mini Magic Tiles</title>
   <style>
     body { margin:0; background:#111; overflow:hidden; font-family:Arial,sans-serif; color:white; text-align:center; }
-    canvas { display:block; margin:20px auto; background:#222; border:2px solid #555; }
+    canvas { display:block; margin:20px auto; background:#222; border:2px solid #555; cursor:pointer; }
     #hud { margin:10px; }
     #progressContainer { width:80%; margin:10px auto; height:20px; background:#333; border-radius:10px; overflow:hidden; }
     #progressBar { height:100%; width:0%; background:linear-gradient(90deg,gold,orange); }
@@ -40,8 +40,8 @@
     let speed = baseSpeed;
     let running = false;
     let stars = 0;
+    let spawnChance = 0.01;
 
-    // Durée musique (3:24 = 204s)
     const songDuration = 204;
     const audio = new Audio("musique.mp3");
 
@@ -57,6 +57,11 @@
       draw() {
         ctx.fillStyle = this.hit ? "#444" : "#09f";
         ctx.fillRect(this.lane * this.w, this.y, this.w - 4, this.h - 4);
+      }
+      contains(x,y){
+        return !this.hit &&
+               x >= this.lane * this.w && x <= (this.lane+1)*this.w &&
+               y >= this.y && y <= this.y + this.h;
       }
     }
 
@@ -85,7 +90,7 @@
       return !tiles.some(t => t.lane === lane && t.y < 150);
     }
 
-    function spawnTile(spawnChance){
+    function spawnTile(){
       let lane;
       let attempts = 0;
       do {
@@ -93,35 +98,30 @@
         attempts++;
       } while (!canSpawn(lane) && attempts < 10);
 
-      if(Math.random() < spawnChance){  // proba d'apparition
+      if(Math.random() < spawnChance){
         tiles.push(new Tile(lane));
       }
     }
 
-    // Contrôles clavier
-    window.addEventListener("keydown", e => {
+    // Clic souris
+    canvas.addEventListener("click", e => {
       if(!running) return;
-      const keyMap = { ArrowLeft:0, ArrowDown:1, ArrowUp:2, ArrowRight:3 };
-      if(keyMap[e.key] !== undefined){
-        checkHit(keyMap[e.key]);
-      }
-    });
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
 
-    function checkHit(lane){
-      const hitZoneTop = canvas.height - 150;
-      const hitZoneBottom = canvas.height;
-
+      let hitAny = false;
       for(let tile of tiles){
-        if(!tile.hit && tile.lane === lane &&
-           tile.y + tile.h > hitZoneTop && tile.y < hitZoneBottom){
+        if(tile.contains(mx,my)){
           tile.hit = true;
           score += 10;
           scoreSpan.textContent = score;
-          return;
+          hitAny = true;
+          break;
         }
       }
-      loseLife();
-    }
+      if(!hitAny) loseLife();
+    });
 
     function loseLife(){
       lives--;
@@ -139,9 +139,8 @@
         starsDiv.textContent = "⭐".repeat(stars);
       }
 
-      // difficulté progressive
-      speed = baseSpeed + (percent/20);   // vitesse ↑
-      spawnChance = 0.01 + (percent/200); // fréquence ↑
+      speed = baseSpeed + (percent/20);
+      spawnChance = 0.01 + (percent/200);
 
       if(percent >= 100){ running = false; audio.pause(); alert("Victoire 🎉 Score: "+score); }
     }
@@ -150,8 +149,7 @@
       if(!running) return;
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // apparition progressive
-      spawnTile(0.01 + (audio.currentTime/songDuration)/5);
+      spawnTile();
 
       tiles.forEach(tile=>{ tile.update(); tile.draw(); });
 
