@@ -1,282 +1,386 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Magic Tiles Clone</title>
-  <style>
-    body {
-      margin: 0;
-      background: #111;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-      color: #fff;
-    }
-    canvas {
-      display: none;
-      margin: auto;
-      background: #222;
-    }
-    #feedback {
-      position: absolute;
-      top: 30%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 48px;
-      text-shadow: 2px 2px 5px black;
-      opacity: 0;
-      transition: opacity 0.3s ease-out;
-    }
-    #progressContainer {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80%;
-      height: 20px;
-      background: #333;
-      border-radius: 10px;
-      overflow: hidden;
-      display: none;
-    }
-    #progressBar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, gold, orange);
-      border-radius: 10px;
-      transition: width 0.2s;
-    }
-    #stars {
-      position: absolute;
-      top: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 28px;
-      color: gold;
-      display: none;
-    }
-    #menu {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-    }
-    #startBtn {
-      font-size: 24px;
-      padding: 12px 24px;
-      background: #0f0;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    #endScreen {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-    }
-    #restartBtn {
-      margin-top: 20px;
-      font-size: 20px;
-      padding: 10px 20px;
-      background: #09f;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Magic Tiles - Version améliorée</title>
+<style>
+  :root{--bg:#0b1020;--panel:#222;--accent:#1abc9c;--text:#fff;}
+  body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--text);height:100vh;display:flex;align-items:center;justify-content:center}
+  .wrap{width:360px;max-width:96vw;position:relative}
+  /* Top UI */
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .hud{font-weight:700}
+  .tiny{font-size:13px;color:#bfc9cf}
+  /* progress */
+  #progressContainer{width:100%;height:14px;background:#333;border-radius:8px;overflow:hidden;display:none;margin-bottom:6px}
+  #progressBar{height:100%;width:0%;background:linear-gradient(90deg,gold,orange)}
+  #stars{text-align:center;font-size:18px;margin-bottom:6px;color:gold;display:none}
+  /* Game area */
+  #game{width:100%;height:600px;background:var(--panel);border-radius:8px;position:relative;overflow:hidden;display:none}
+  .lane{position:absolute;top:0;bottom:0;width:25%;border-left:1px solid rgba(255,255,255,0.02);border-right:1px solid rgba(0,0,0,0.06)}
+  /* Tiles are DOM elements to handle clicks easily */
+  .tile{
+    position:absolute;border-radius:8px;box-shadow:0 6px 14px rgba(0,0,0,0.5);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#042;
+    user-select:none;
+  }
+  .tile.long{border-radius:8px 8px 2px 2px}
+  .tile.holding{outline:3px solid rgba(255,255,255,0.12)}
+  /* menu & endscreen */
+  #menu, #endScreen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:30}
+  #menu h1,#endScreen h1{margin:0 0 12px 0}
+  button{padding:10px 18px;border-radius:8px;border:0;cursor:pointer}
+  #startBtn{background:var(--accent);color:#042;font-size:18px}
+  #restartBtn{background:#09f;color:#042}
+  /* feedback */
+  #feedback{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:32px;color:#fff;text-shadow:0 3px 8px #000;opacity:0;transition:opacity .25s;pointer-events:none;z-index:40}
+  /* lives */
+  #livesBox{display:flex;gap:6px;align-items:center}
+  .heart{width:18px;height:18px;background:red;border-radius:4px}
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <div id="feedback"></div>
-  <div id="progressContainer"><div id="progressBar"></div></div>
-  <div id="stars"></div>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="hud">Score: <span id="score">0</span></div>
+      <div id="livesBox" class="tiny">Vies: <span id="lives">3</span></div>
+    </div>
 
-  <!-- Menu de démarrage -->
-  <div id="menu">
-    <h1>🎵 Magic Tiles Clone 🎵</h1>
-    <button id="startBtn">Commencer</button>
+    <div id="progressContainer"><div id="progressBar"></div></div>
+    <div id="stars"></div>
+
+    <div id="game">
+      <!-- 4 lanes -->
+      <div class="lane" style="left:0; width:25%"></div>
+      <div class="lane" style="left:25%; width:25%"></div>
+      <div class="lane" style="left:50%; width:25%"></div>
+      <div class="lane" style="left:75%; width:25%"></div>
+      <div id="feedback"></div>
+
+      <!-- Menu + EndScreen -->
+      <div id="menu">
+        <h1>🎵 Magic Tiles Clone</h1>
+        <button id="startBtn">Commencer</button>
+        <div class="tiny" style="margin-top:8px">Clique les tuiles — maintiens sur les tuiles longues</div>
+      </div>
+
+      <div id="endScreen" style="display:none">
+        <h1 id="endMessage">Partie terminée</h1>
+        <button id="restartBtn">Rejouer</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Écran de fin -->
-  <div id="endScreen">
-    <h1 id="endMessage"></h1>
-    <button id="restartBtn">Rejouer</button>
-  </div>
+<script>
+/* --------- CONFIG --------- */
+const SONG_DURATION = 204; // secondes (3:24)
+const INITIAL_SPAWN_MS = 900;
+const MIN_SPAWN_MS = 250;
+const INITIAL_SPEED = 2.0;
+const HIT_ZONE_TOP_OFFSET = 160; // hit zone top = gameHeight - HIT_ZONE_TOP_OFFSET
+const HIT_ZONE_BOTTOM_OFFSET = 20;
+/* -------------------------- */
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+const game = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const progressContainer = document.getElementById('progressContainer');
+const progressBar = document.getElementById('progressBar');
+const starsDiv = document.getElementById('stars');
+const feedback = document.getElementById('feedback');
+const menu = document.getElementById('menu');
+const startBtn = document.getElementById('startBtn');
+const endScreen = document.getElementById('endScreen');
+const endMessage = document.getElementById('endMessage');
+const restartBtn = document.getElementById('restartBtn');
 
-    const laneWidth = canvas.width / 4;
-    let speed = 3;
-    let tiles = [];
-    let score = 0;
-    let keysPressed = {};
+let score = 0;
+let lives = 3;
+let tiles = []; // objets tiles
+let running = false;
+let spawnTimer = null;
+let spawnMs = INITIAL_SPAWN_MS;
+let speed = INITIAL_SPEED;
+let stars = 0;
+const TOTAL_STARS = 4;
 
-    const songDuration = 204; // 3:24
-    const audio = new Audio("musique.mp3");
-    audio.loop = false;
+// audio (mettre musique.mp3 à côté de index.html)
+const audio = new Audio('musique.mp3');
+audio.loop = false;
 
-    const progressBar = document.getElementById("progressBar");
-    const starsDiv = document.getElementById("stars");
-    const feedback = document.getElementById("feedback");
-    const menu = document.getElementById("menu");
-    const startBtn = document.getElementById("startBtn");
-    const endScreen = document.getElementById("endScreen");
-    const endMessage = document.getElementById("endMessage");
-    const restartBtn = document.getElementById("restartBtn");
+// helper: hit zone
+function hitZoneTop() { return game.clientHeight - HIT_ZONE_TOP_OFFSET; }
+function hitZoneBottom() { return game.clientHeight - HIT_ZONE_BOTTOM_OFFSET; }
 
-    let stars = 0;
-    let running = false;
+// Tile factory
+let tileIdCounter = 0;
+function createTile(lane, type='normal', length=1){
+  const id = ++tileIdCounter;
+  const tile = {
+    id, lane, y: -100*length, type, length,
+    hit:false, held:false, holdStart:0, requiredHoldMs: 300 * length,
+    el: null
+  };
+  const el = document.createElement('div');
+  el.className = 'tile' + (type==='long' ? ' long' : '');
+  el.style.width = (game.clientWidth/4 - 20) + 'px';
+  el.style.height = (100 * length - 8) + 'px';
+  el.style.left = (lane * (game.clientWidth/4) + 10) + 'px';
+  el.style.top = tile.y + 'px';
+  // color
+  const colors = ['#e74c3c','#3498db','#f1c40f','#9b59b6'];
+  el.style.background = (type==='long')? '#2ecc71' : colors[Math.floor(Math.random()*colors.length)];
+  el.dataset.id = id;
+  el.innerText = (type==='long') ? '' : ''; // text optional
+  // pointer events for click/hold
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    onTilePointerDown(tile);
+  });
+  el.addEventListener('pointerup', (e)=>{
+    e.preventDefault();
+    onTilePointerUp(tile);
+  });
+  el.addEventListener('pointercancel', (e)=>{
+    e.preventDefault();
+    onTilePointerUp(tile);
+  });
+  // touchend also triggers pointerup in modern browsers
+  tile.el = el;
+  tiles.push(tile);
+  game.appendChild(el);
+  return tile;
+}
 
-    class Tile {
-      constructor(lane, y, type = "normal", length = 1) {
-        this.lane = lane;
-        this.y = y;
-        this.type = type;
-        this.length = length;
-        this.hit = false;
-        this.held = false;
-      }
-      draw() {
-        ctx.fillStyle = this.type === "long" ? "#0f0" : "#09f";
-        let tileHeight = 100 * this.length;
-        ctx.fillRect(this.lane * laneWidth, this.y, laneWidth - 4, tileHeight - 4);
-      }
-      update() { this.y += speed; }
+/* ---------- interaction logic ---------- */
+function isTileInHitZone(tile){
+  const tileTop = tile.y;
+  const tileBottom = tile.y + (100 * tile.length);
+  return (tileBottom > hitZoneTop() && tileTop < hitZoneBottom());
+}
+
+function removeTile(tile, reason='hit'){
+  // remove DOM and from array
+  if(tile.el && tile.el.parentElement) tile.el.remove();
+  tile.removed = true;
+  tiles = tiles.filter(t => t.id !== tile.id);
+  if(reason === 'miss'){
+    lives--;
+    updateLives();
+    showFeedback('Miss');
+    if(lives <= 0) finishGame(false);
+  }
+}
+
+function hitTile(tile, rating='Perfect'){
+  if(tile.hit) return;
+  tile.hit = true;
+  // award points (normal 10, long 20)
+  if(tile.type === 'normal') score += 10;
+  else score += 20;
+  updateScore();
+  showFeedback(rating);
+  removeTile(tile,'hit');
+}
+
+function startHold(tile){
+  if(tile.held) return;
+  tile.held = true;
+  tile.holdStart = performance.now();
+  if(tile.el) tile.el.classList.add('holding');
+}
+function stopHold(tile){
+  if(!tile.held) return;
+  tile.el && tile.el.classList.remove('holding');
+  const duration = performance.now() - tile.holdStart;
+  tile.held = false;
+  // success if held long enough while in hit zone
+  if(duration >= tile.requiredHoldMs && isTileInHitZone(tile)){
+    hitTile(tile,'Great!');
+  } else {
+    showFeedback('Too short');
+    // optional: penalize or not
+  }
+}
+
+/* pointer handlers */
+function onTilePointerDown(tile){
+  // if tile in hit zone
+  if(!isTileInHitZone(tile)) return;
+  if(tile.type === 'normal'){
+    hitTile(tile,'Perfect!');
+  } else {
+    // start hold
+    startHold(tile);
+  }
+}
+function onTilePointerUp(tile){
+  if(tile.type === 'long') stopHold(tile);
+}
+
+/* keyboard support */
+const laneKeys = { ArrowLeft:0, ArrowDown:1, ArrowUp:2, ArrowRight:3 };
+const activeHoldByLane = {}; // lane -> tile
+window.addEventListener('keydown', (e)=>{
+  if(!running) return;
+  if(laneKeys.hasOwnProperty(e.key)){
+    const lane = laneKeys[e.key];
+    // find nearest tile in that lane in hit zone
+    const candidate = tiles.find(t => t.lane===lane && !t.hit && !t.removed && isTileInHitZone(t));
+    if(!candidate) return;
+    if(candidate.type === 'normal'){
+      hitTile(candidate,'Perfect!');
+    } else {
+      startHold(candidate);
+      activeHoldByLane[lane] = candidate;
     }
-
-    function showFeedback(text) {
-      feedback.innerText = text;
-      feedback.style.opacity = 1;
-      setTimeout(() => feedback.style.opacity = 0, 500);
+  }
+});
+window.addEventListener('keyup', (e)=>{
+  if(laneKeys.hasOwnProperty(e.key)){
+    const lane = laneKeys[e.key];
+    const tile = activeHoldByLane[lane];
+    if(tile) {
+      stopHold(tile);
+      delete activeHoldByLane[lane];
     }
+  }
+});
 
-    function spawnTile() {
-      const lane = Math.floor(Math.random() * 4);
-      const type = Math.random() < 0.3 ? "long" : "normal";
-      const length = type === "long" ? 2 + Math.floor(Math.random() * 2) : 1;
-      tiles.push(new Tile(lane, -100 * length, type, length));
-    }
+/* ---------- spawn & update loop ---------- */
+function spawnTick(){
+  // choose lane 0..3
+  const lane = Math.floor(Math.random()*4);
+  const isLong = Math.random() < 0.28; // chance long
+  const length = isLong ? (2 + Math.floor(Math.random()*2)) : 1;
+  createTile(lane, isLong ? 'long' : 'normal', length);
+}
 
-    function checkHit(lane) {
-      for (let tile of tiles) {
-        if (!tile.hit &&
-            tile.lane === lane &&
-            tile.y + 100 * tile.length > canvas.height - 120 &&
-            tile.y < canvas.height - 20) {
+function scheduleSpawner(){
+  if(spawnTimer) clearInterval(spawnTimer);
+  spawnTimer = setInterval(spawnTick, spawnMs);
+}
 
-          if (tile.type === "normal") {
-            tile.hit = true;
-            score++;
-            showFeedback("Perfect!");
-          } else if (tile.type === "long") {
-            if (keysPressed[lane]) {
-              tile.held = true;
-              score += 2;
-              showFeedback("Hold!");
-            }
-          }
-        }
+function updatePositions(dt){
+  // move tiles
+  for(const tile of [...tiles]){ // copy to avoid mutation issues
+    tile.y += speed * (dt/16.67); // normalize to 60fps
+    if(tile.el) tile.el.style.top = Math.round(tile.y) + 'px';
+    // if long tile being held: allow early completion if enough time passed AND inside hit zone
+    if(tile.held){
+      const heldTime = performance.now() - tile.holdStart;
+      if(heldTime >= tile.requiredHoldMs && isTileInHitZone(tile)){
+        hitTile(tile,'Great!');
       }
     }
-
-    function releaseLane(lane) {
-      for (let tile of tiles) {
-        if (tile.held && tile.lane === lane) {
-          tile.hit = true;
-          tile.held = false;
-          score += 3;
-          showFeedback("Great!");
-        }
-      }
+    // if tile reached bottom without hit
+    if(tile.y > game.clientHeight + 20 && !tile.hit && !tile.removed){
+      removeTile(tile,'miss');
     }
+  }
+}
 
-    window.addEventListener("keydown", e => {
-      if (["ArrowLeft","ArrowDown","ArrowUp","ArrowRight"].includes(e.key)) {
-        const lane = {ArrowLeft:0,ArrowDown:1,ArrowUp:2,ArrowRight:3}[e.key];
-        keysPressed[lane] = true;
-        checkHit(lane);
-      }
-    });
-    window.addEventListener("keyup", e => {
-      if (["ArrowLeft","ArrowDown","ArrowUp","ArrowRight"].includes(e.key)) {
-        const lane = {ArrowLeft:0,ArrowDown:1,ArrowUp:2,ArrowRight:3}[e.key];
-        keysPressed[lane] = false;
-        releaseLane(lane);
-      }
-    });
+/* ---------- UI helpers ---------- */
+function updateScore(){ scoreEl.textContent = score; }
+function updateLives(){ livesEl.textContent = lives; }
+function showFeedback(text){
+  feedback.textContent = text;
+  feedback.style.opacity = 1;
+  setTimeout(()=> feedback.style.opacity = 0, 500);
+}
 
-    function updateProgress() {
-      const currentTime = audio.currentTime;
-      const percent = Math.min((currentTime / songDuration) * 100, 100);
-      progressBar.style.width = percent + "%";
+/* ---------- Progress + stars ---------- */
+function updateProgress(){
+  if(!audio || !audio.duration) return;
+  const current = Math.min(audio.currentTime, SONG_DURATION);
+  const pct = Math.min((current / SONG_DURATION) * 100, 100);
+  progressBar.style.width = pct + '%';
+  const newStars = Math.floor(pct / (100 / TOTAL_STARS));
+  if(newStars > stars){
+    stars = newStars;
+    starsDiv.textContent = '⭐'.repeat(stars);
+    // increase difficulty at each new star
+    speed += 0.9;
+    spawnMs = Math.max(MIN_SPAWN_MS, Math.round(spawnMs - 180));
+    scheduleSpawner();
+  }
+  // if song ended
+  if(audio.ended || audio.currentTime >= SONG_DURATION){
+    finishGame(true);
+  }
+}
 
-      const newStars = Math.floor(percent / 25);
-      if (newStars > stars) {
-        stars = newStars;
-        starsDiv.innerText = "⭐".repeat(stars);
-        speed += 1;
-      }
+/* ---------- game loop ---------- */
+let lastFrame = performance.now();
+function loop(now){
+  if(!running) { lastFrame = now; requestAnimationFrame(loop); return; }
+  const dt = now - lastFrame;
+  lastFrame = now;
+  updatePositions(dt);
+  updateProgress();
+  requestAnimationFrame(loop);
+}
 
-      if (currentTime >= songDuration) {
-        endGame();
-      }
+/* ---------- start / stop ---------- */
+function startGame(){
+  // reset
+  menu.style.display = 'none';
+  document.getElementById('progressContainer').style.display = 'block';
+  starsDiv.style.display = 'block';
+  game.style.display = 'block';
+  endScreen.style.display = 'none';
+  tiles.forEach(t=>t.el && t.el.remove());
+  tiles = [];
+  score = 0; lives = 3; spawnMs = INITIAL_SPAWN_MS; speed = INITIAL_SPEED; stars = 0;
+  updateScore(); updateLives();
+  progressBar.style.width = '0%';
+  starsDiv.textContent = '';
+  running = true;
+  audio.currentTime = 0;
+  audio.play().catch(()=>{ /* if blocked, user can click to allow */ });
+  scheduleSpawner();
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function finishGame(victory=false){
+  running = false;
+  clearInterval(spawnTimer);
+  spawnTimer = null;
+  // remove remaining tiles
+  tiles.forEach(t=>t.el && t.el.remove());
+  tiles = [];
+  audio.pause();
+  progressBar.style.width = '100%';
+  endMessage.textContent = victory ? `Victoire 🎉 Score: ${score}` : `Game Over 😢 Score: ${score}`;
+  endScreen.style.display = 'flex';
+  // hide main UI
+  game.style.display = 'none';
+  document.getElementById('progressContainer').style.display = 'none';
+  starsDiv.style.display = 'none';
+}
+
+/* ---------- events ---------- */
+startBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('click', startGame);
+
+/* ensure sizes update if window resizes */
+window.addEventListener('resize', ()=>{
+  // adjust tiles width/position
+  for(const t of tiles){
+    if(t.el){
+      t.el.style.width = (game.clientWidth/4 - 20) + 'px';
+      t.el.style.left = (t.lane * (game.clientWidth/4) + 10) + 'px';
     }
+  }
+});
 
-    function gameLoop() {
-      if (!running) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (Math.random() < 0.02) spawnTile();
-
-      for (let tile of tiles) {
-        tile.update();
-        tile.draw();
-      }
-
-      tiles = tiles.filter(tile => tile.y < canvas.height + 200);
-
-      ctx.fillStyle = "#fff";
-      ctx.font = "20px Arial";
-      ctx.fillText("Score: " + score, 10, 30);
-
-      updateProgress();
-      requestAnimationFrame(gameLoop);
-    }
-
-    function startGame() {
-      menu.style.display = "none";
-      canvas.style.display = "block";
-      document.getElementById("progressContainer").style.display = "block";
-      starsDiv.style.display = "block";
-      tiles = [];
-      score = 0;
-      stars = 0;
-      speed = 3;
-      running = true;
-      audio.currentTime = 0;
-      audio.play();
-      gameLoop();
-    }
-
-    function endGame() {
-      running = false;
-      canvas.style.display = "none";
-      document.getElementById("progressContainer").style.display = "none";
-      starsDiv.style.display = "none";
-      endMessage.innerText = `Partie terminée 🎵 Score: ${score}`;
-      endScreen.style.display = "block";
-    }
-
-    startBtn.addEventListener("click", startGame);
-    restartBtn.addEventListener("click", () => {
-      endScreen.style.display = "none";
-      startGame();
-    });
-  </script>
+/* kick off loop (idle) */
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
