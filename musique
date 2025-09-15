@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Descente de carrés — Mini-jeu</title>
+  <style>
+    :root{--bg:#0b1020;--player:#58d68d;--square:#f39c12;--bullet:#ecf0f1;--ui:#bdc3c7}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071024 0%,#0b1020 100%);color:var(--ui)}
+    .wrap{width:900px;max-width:96vw;padding:16px}
+    canvas{display:block;width:100%;height:auto;background:linear-gradient(180deg, #072033 0%, #091424 100%);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+    .info{display:flex;justify-content:space-between;align-items:center;margin:10px 0 6px}
+    .controls{font-size:14px}
+    .hud{font-weight:600}
+    .tiny{font-size:13px;color:#95a5a6}
+    button{background:#1abc9c;border:0;padding:8px 12px;border-radius:6px;color:#042;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="info">
+      <div class="hud">Score: <span id="score">0</span> &nbsp; Lives: <span id="lives">3</span></div>
+      <div class="controls tiny">Contrôles: ← → pour bouger — ↑ pour tirer — P pause — R recommencer</div>
+    </div>
+    <canvas id="game"></canvas>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center">
+      <div class="tiny">But: détruire les carrés qui descendent avant qu'ils n'atteignent le bas.</div>
+      <div>
+        <button id="restart">Recommencer</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W = 900, H = 600;
+  const DPR = Math.max(1, window.devicePixelRatio || 1);
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    W = Math.max(320, rect.width);
+    H = Math.round(W * 2/3);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+
+  // Game state
+  let player, bullets, squares, keys, spawnTimer, score, lives, running, paused;
+
+  function makePlayer(){
+    return {x: W/2, y: H-40, w: 64, h: 12, speed: 6};
+  }
+
+  function start(){
+    resize();
+    player = makePlayer();
+    bullets = [];
+    squares = [];
+    keys = {};
+    spawnTimer = 0;
+    score = 0;
+    lives = 3;
+    running = true;
+    paused = false;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+    loop(perfNow());
+  }
+
+  // Timing helper
+  function perfNow(){return performance.now();}
+
+  // Spawn square
+  function spawnSquare(){
+    const size = 24 + Math.random()*36; // 24 - 60
+    const x = Math.random() * (W - size - 8) + 4;
+    const speed = 0.6 + Math.random()*1.6 + Math.min(2.8, score/40);
+    squares.push({x,y: -size,size,speed,health:1});
+  }
+
+  // Controls
+  window.addEventListener('keydown', e => {
+    if(e.key === 'p' || e.key === 'P') paused = !paused;
+    if(e.key === 'r' || e.key === 'R') start();
+    keys[e.key] = true;
+    // prevent arrow scrolling
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+  });
+  window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  function update(dt){
+    if(paused) return;
+    // player movement
+    if(keys['ArrowLeft'] || keys['Left']) player.x -= player.speed;
+    if(keys['ArrowRight'] || keys['Right']) player.x += player.speed;
+    // clamp
+    player.x = Math.max(10, Math.min(W - player.w - 10, player.x));
+
+    // fire with ArrowUp
+    if((keys['ArrowUp'] || keys['Up']) && (bullets._cooldown || 0) <= 0){
+      bullets.push({x: player.x + player.w/2 - 3, y: player.y - 6, w:6, h:12, speed:9});
+      bullets._cooldown = 14; // frames
+    }
+    bullets._cooldown = Math.max(0, (bullets._cooldown||0) - 1);
+
+    // update bullets
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      b.y -= b.speed;
+      if(b.y + b.h < 0) bullets.splice(i,1);
+    }
+
+    // spawn squares progressively faster
+    spawnTimer -= dt;
+    if(spawnTimer <= 0){
+      spawnSquare();
+      spawnTimer = 500 - Math.min(350, score*6); // ms between spawns
+      spawnTimer = Math.max(120, spawnTimer);
+    }
+
+    // update squares
+    for(let i=squares.length-1;i>=0;i--){
+      const s = squares[i];
+      s.y += s.speed * (dt/16.67);
+      // collision with player bottom -> lose life
+      if(s.y + s.size >= player.y){
+        // if overlaps horizontally
+        if(s.x + s.size > player.x && s.x < player.x + player.w){
+          // destroy square and damage player
+          squares.splice(i,1);
+          lives -= 1;
+          document.getElementById('lives').textContent = lives;
+          if(lives <= 0){ running = false; }
+          continue;
+        }
+      }
+      // remove if past bottom
+      if(s.y > H + 40){ squares.splice(i,1); }
+    }
+
+    // bullet <-> square collisions
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      for(let j=squares.length-1;j>=0;j--){
+        const s = squares[j];
+        if(b.x < s.x + s.size && b.x + b.w > s.x && b.y < s.y + s.size && b.y + b.h > s.y){
+          // hit
+          bullets.splice(i,1);
+          squares.splice(j,1);
+          score += 10;
+          document.getElementById('score').textContent = score;
+          break;
+        }
+      }
+    }
+  }
+
+  // Render
+  function draw(){
+    // clear
+    ctx.clearRect(0,0,W,H);
+
+    // background grid subtle
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = '#ffffff';
+    for(let gx = 0; gx < W; gx += 32){ ctx.fillRect(gx,0,1,H); }
+    for(let gy = 0; gy < H; gy += 32){ ctx.fillRect(0,gy,W,1); }
+    ctx.restore();
+
+    // player
+    ctx.fillStyle = '#58d68d';
+    roundRect(ctx, player.x, player.y, player.w, player.h, 6, true);
+
+    // bullets
+    ctx.fillStyle = '#ecf0f1';
+    bullets.forEach(b => roundRect(ctx, b.x, b.y, b.w, b.h, 3, true));
+
+    // squares
+    ctx.fillStyle = '#f39c12';
+    squares.forEach(s => {
+      // subtle 3D effect
+      ctx.fillRect(s.x, s.y, s.size, s.size);
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(s.x, s.y, s.size, s.size/4);
+      ctx.globalAlpha = 1;
+    });
+
+    // paused / game over
+    if(paused){ drawCenteredText('PAUSE — P pour reprendre', 20); }
+    if(!running){ drawCenteredText('GAME OVER — appuyez sur R pour recommencer', 18); }
+  }
+
+  function drawCenteredText(text,size=16){
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.95;
+    ctx.font = `bold ${size}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, W/2, H/2);
+    ctx.restore();
+  }
+
+  function roundRect(ctx,x,y,w,h,r,fill){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+    if(fill) ctx.fill(); else ctx.stroke();
+  }
+
+  // Main loop
+  let lastTime = perfNow();
+  function loop(now){
+    const dt = now - lastTime;
+    lastTime = now;
+    if(running) update(dt);
+    draw();
+    if(running) requestAnimationFrame(loop);
+    else draw();
+  }
+
+  // Buttons
+  document.getElementById('restart').addEventListener('click', start);
+
+  // Start the game initially
+  start();
+
+})();
+</script>
+</body>
+</html>
