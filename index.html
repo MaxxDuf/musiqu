@@ -2,175 +2,197 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Mini Magic Tiles</title>
+  <title>Jeu Magic Tiles</title>
   <style>
-    body { margin:0; background:#111; overflow:hidden; font-family:Arial,sans-serif; color:white; text-align:center; }
-    canvas { display:block; margin:20px auto; background:#222; border:2px solid #555; cursor:pointer; }
-    #hud { margin:10px; }
-    #progressContainer { width:80%; margin:10px auto; height:20px; background:#333; border-radius:10px; overflow:hidden; }
-    #progressBar { height:100%; width:0%; background:linear-gradient(90deg,green,lime); transition:width 0.2s; }
-    #stars { margin:5px; font-size:24px; color:gold; }
-    #startBtn { padding:10px 20px; font-size:20px; margin-top:20px; cursor:pointer; }
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #gameCanvas {
+      display: block;
+      margin: 20px auto;
+      background: #222;
+      border: 2px solid #555;
+    }
+    #startButton {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    #progressContainer {
+      width: 80%;
+      height: 20px;
+      background: #444;
+      border-radius: 10px;
+      margin: 15px auto;
+      position: relative;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: green;
+      border-radius: 10px;
+    }
+    .star {
+      position: absolute;
+      top: -5px;
+      width: 15px;
+      height: 15px;
+      color: gray;
+      font-size: 18px;
+    }
+    .star.reached {
+      color: yellow;
+    }
   </style>
 </head>
 <body>
-  <h1>🎵 Mini Magic Tiles</h1>
-  <button id="startBtn">Commencer</button>
-  <div id="hud" style="display:none;">
-    Score: <span id="score">0</span> | Vies: <span id="lives">3</span>
-    <div id="progressContainer"><div id="progressBar"></div></div>
-    <div id="stars"></div>
+  <h1>🎵 Magic Tiles</h1>
+  <button id="startButton">Commencer</button>
+  <div id="progressContainer">
+    <div id="progressBar"></div>
   </div>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <audio id="music" src="musique.mp3"></audio>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const startBtn = document.getElementById("startBtn");
-    const hud = document.getElementById("hud");
-    const scoreSpan = document.getElementById("score");
-    const livesSpan = document.getElementById("lives");
+    const startButton = document.getElementById("startButton");
+    const music = document.getElementById("music");
     const progressBar = document.getElementById("progressBar");
-    const starsDiv = document.getElementById("stars");
+    const progressContainer = document.getElementById("progressContainer");
 
     let tiles = [];
-    let score = 0;
-    let lives = 3;
-    let baseSpeed = 2;
-    let speed = baseSpeed;
-    let running = false;
-    let stars = 0;
-    let progressWidth = 0; // largeur de la barre en px
+    const tileWidth = canvas.width / 4;
+    const tileHeight = 100;
+    const numCols = 4;
+    let speed = 2;
+    let gameInterval, tileInterval;
+    let playing = false;
 
-    const audio = new Audio("musique.mp3");
+    // Durée de la musique (3 min 24 = 204s)
+    const songDuration = 204;
+    let stars = [];
 
-    class Tile {
-      constructor(lane) {
-        this.lane = lane;
-        this.y = -120;
-        this.w = canvas.width / 4;
-        this.h = 120;
-        this.hit = false;
-      }
-      update() { this.y += speed; }
-      draw() {
-        ctx.fillStyle = this.hit ? "#444" : "#09f";
-        ctx.fillRect(this.lane * this.w, this.y, this.w - 4, this.h - 4);
-      }
-      contains(x,y){
-        return !this.hit &&
-               x >= this.lane * this.w && x <= (this.lane+1)*this.w &&
-               y >= this.y && y <= this.y + this.h;
+    // Ajouter les étoiles sur la barre
+    function createStars() {
+      const starCount = 5;
+      stars = [];
+      for (let i = 1; i <= starCount; i++) {
+        const star = document.createElement("span");
+        star.innerHTML = "★";
+        star.classList.add("star");
+        star.style.left = (i * 100 / (starCount + 1)) + "%";
+        progressContainer.appendChild(star);
+        stars.push(star);
       }
     }
 
-    startBtn.onclick = () => {
-      startBtn.style.display = "none";
-      hud.style.display = "block";
-      audio.currentTime = 0;
-      audio.play();
-      resetGame();
-      running = true;
-      gameLoop();
-    };
+    // Création des tuiles (avec vérification chevauchement)
+    function createTile() {
+      let col;
+      let valid = false;
 
-    function resetGame(){
-      tiles = [];
-      score = 0;
-      lives = 3;
-      speed = baseSpeed;
-      stars = 0;
-      progressWidth = 0;
-      scoreSpan.textContent = score;
-      livesSpan.textContent = lives;
-      starsDiv.textContent = "";
-      progressBar.style.width = "0px";
+      while (!valid) {
+        col = Math.floor(Math.random() * numCols);
+        valid = true;
+        for (let tile of tiles) {
+          if (tile.col === col && tile.y < 120) {
+            valid = false;
+            break;
+          }
+        }
+      }
+
+      let tile = {
+        x: col * tileWidth,
+        y: -tileHeight,
+        col: col,
+        clicked: false
+      };
+      tiles.push(tile);
     }
 
-    function canSpawn(lane) {
-      return !tiles.some(t => t.lane === lane && t.y < 150);
-    }
-
-    function spawnTile(){
-      let lane;
-      let attempts = 0;
-      do {
-        lane = Math.floor(Math.random() * 4);
-        attempts++;
-      } while (!canSpawn(lane) && attempts < 10);
-
-      if(Math.random() < 0.01 + (progressWidth/2000)){
-        tiles.push(new Tile(lane));
+    // Dessin
+    function drawTiles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "cyan";
+      for (let tile of tiles) {
+        ctx.fillRect(tile.x + 2, tile.y, tileWidth - 4, tileHeight - 4);
       }
     }
 
-    // clic souris
-    canvas.addEventListener("click", e => {
-      if(!running) return;
+    // Mise à jour
+    function updateTiles() {
+      for (let tile of tiles) {
+        tile.y += speed;
+      }
+      tiles = tiles.filter(tile => tile.y < canvas.height);
+    }
+
+    // Clic souris
+    canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
 
-      const mx = (e.clientX - rect.left) * scaleX;
-      const my = (e.clientY - rect.top) * scaleY;
-
-      let hitAny = false;
-      for(let tile of tiles){
-        if(tile.contains(mx,my)){
-          tile.hit = true;
-          score += 10;
-          scoreSpan.textContent = score;
-          hitAny = true;
-
-          // chaque clic réussi fait avancer la barre
-          progressWidth += 5; // ← tu peux changer cette valeur
-          progressBar.style.width = progressWidth + "px";
-          checkStars();
+      for (let tile of tiles) {
+        if (
+          mouseX >= tile.x &&
+          mouseX <= tile.x + tileWidth &&
+          mouseY >= tile.y &&
+          mouseY <= tile.y + tileHeight
+        ) {
+          tiles.splice(tiles.indexOf(tile), 1);
           break;
         }
       }
-      if(!hitAny) loseLife();
     });
 
-    function checkStars(){
-      const maxWidth = document.getElementById("progressContainer").offsetWidth;
-      const percent = (progressWidth / maxWidth) * 100;
-      let newStars = Math.floor(percent/20);
-      if(newStars > stars){
-        stars = newStars;
-        starsDiv.textContent = "⭐".repeat(stars);
-      }
-      if(percent >= 100){
-        running = false; 
-        audio.pause();
-        alert("Victoire 🎉 Score: "+score);
-      }
+    // Boucle de jeu
+    function gameLoop() {
+      updateTiles();
+      drawTiles();
     }
 
-    function loseLife(){
-      lives--;
-      livesSpan.textContent = lives;
-      if(lives <= 0){ running = false; audio.pause(); alert("Game Over ! Score: "+score); }
-    }
+    // Barre de progression
+    function updateProgress() {
+      const currentTime = music.currentTime;
+      const progress = (currentTime / songDuration) * 100;
+      progressBar.style.width = progress + "%";
 
-    function gameLoop(){
-      if(!running) return;
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-
-      spawnTile();
-
-      tiles.forEach(tile=>{ tile.update(); tile.draw(); });
-
-      tiles = tiles.filter(tile=>{
-        if(tile.y > canvas.height){
-          if(!tile.hit){ loseLife(); }
-          return false;
+      // Activer étoiles atteintes
+      stars.forEach((star, i) => {
+        const threshold = (i + 1) * 100 / (stars.length + 1);
+        if (progress >= threshold) {
+          star.classList.add("reached");
         }
-        return true;
       });
-
-      requestAnimationFrame(gameLoop);
     }
+
+    // Lancement
+    startButton.addEventListener("click", () => {
+      if (!playing) {
+        playing = true;
+        music.play();
+        createStars();
+        gameInterval = setInterval(gameLoop, 20);
+        tileInterval = setInterval(createTile, 800); // début facile
+        setInterval(updateProgress, 200);
+
+        // Augmentation progressive de la difficulté
+        setInterval(() => {
+          if (tileInterval) clearInterval(tileInterval);
+          tileInterval = setInterval(createTile, Math.max(200, 800 - music.currentTime * 3));
+          speed = 2 + music.currentTime / 30;
+        }, 3000);
+      }
+    });
   </script>
 </body>
 </html>
