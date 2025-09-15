@@ -36,31 +36,30 @@
     let tiles = [];
     let score = 0;
     let lives = 3;
-    let speed = 3;
+    let baseSpeed = 2;   // vitesse initiale
+    let speed = baseSpeed;
     let running = false;
     let stars = 0;
 
-    // musique 3:24 (204 sec)
+    // durée musique 3:24 = 204s
     const songDuration = 204;
     const audio = new Audio("musique.mp3");
 
-    // Classe Tile
     class Tile {
       constructor(lane) {
         this.lane = lane;
-        this.y = -100;
+        this.y = -120;
         this.w = canvas.width / 4;
-        this.h = 100;
+        this.h = 120;
         this.hit = false;
       }
       update() { this.y += speed; }
       draw() {
-        ctx.fillStyle = this.hit ? "#555" : "#09f";
+        ctx.fillStyle = this.hit ? "#444" : "#09f";
         ctx.fillRect(this.lane * this.w, this.y, this.w - 4, this.h - 4);
       }
     }
 
-    // Démarrer jeu
     startBtn.onclick = () => {
       startBtn.style.display = "none";
       hud.style.display = "block";
@@ -75,16 +74,25 @@
       tiles = [];
       score = 0;
       lives = 3;
-      speed = 3;
+      speed = baseSpeed;
       stars = 0;
       scoreSpan.textContent = score;
       livesSpan.textContent = lives;
       starsDiv.textContent = "";
     }
 
-    // Spawn de tuile
+    // Vérifie si on peut spawn dans une colonne (pas de chevauchement)
+    function canSpawn(lane) {
+      return !tiles.some(t => t.lane === lane && t.y < 150);
+    }
+
     function spawnTile(){
-      const lane = Math.floor(Math.random() * 4);
+      let lane;
+      let attempts = 0;
+      do {
+        lane = Math.floor(Math.random() * 4);
+        attempts++;
+      } while (!canSpawn(lane) && attempts < 10);
       tiles.push(new Tile(lane));
     }
 
@@ -109,39 +117,47 @@
         }
       }
       // raté
+      loseLife();
+    }
+
+    function loseLife(){
       lives--;
       livesSpan.textContent = lives;
       if(lives <= 0){ running = false; audio.pause(); alert("Game Over ! Score: "+score); }
     }
 
-    // Progression et étoiles
+    // Progression + étoiles
     function updateProgress(){
       const percent = Math.min((audio.currentTime / songDuration) * 100, 100);
       progressBar.style.width = percent+"%";
-      let newStars = Math.floor(percent/25);
+
+      // étoiles tous les 20%
+      let newStars = Math.floor(percent/20);
       if(newStars > stars){
         stars = newStars;
         starsDiv.textContent = "⭐".repeat(stars);
-        speed++;
       }
+
+      // vitesse augmente progressivement
+      speed = baseSpeed + (percent/20); // augmente lentement avec le temps
+
       if(percent >= 100){ running = false; audio.pause(); alert("Victoire 🎉 Score: "+score); }
     }
 
-    // Boucle du jeu
+    // Boucle de jeu
     function gameLoop(){
       if(!running) return;
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      if(Math.random()<0.03) spawnTile();
+      // spawn selon la vitesse (plus souvent à la fin)
+      if(Math.random() < 0.02 + (speed/200)) spawnTile();
 
       tiles.forEach(tile=>{ tile.update(); tile.draw(); });
+
+      // nettoyer les tuiles hors écran
       tiles = tiles.filter(tile=>{
         if(tile.y > canvas.height){
-          if(!tile.hit){ // raté
-            lives--;
-            livesSpan.textContent = lives;
-            if(lives<=0){ running=false; audio.pause(); alert("Game Over ! Score: "+score); }
-          }
+          if(!tile.hit){ loseLife(); }
           return false;
         }
         return true;
